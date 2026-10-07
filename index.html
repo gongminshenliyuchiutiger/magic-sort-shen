@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Magic Sort Shen</title>
+    <!-- Google Fonts 字型 -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600;700&family=Nunito:wght@400;700;900&display=swap" rel="stylesheet">
+    <!-- Font Awesome 最新圖示庫 -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" integrity="sha512-SnH5WK+bZxgPHs44uWIX+LLJAJ9/2PkPKZ5QiAj6Ta86w+fsb2TkcmfRyVX3pBnMFcV7oQPJkl9QevSCWr3W6A==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <!-- 背景動態魔法粒子畫布 -->
+    <canvas id="magic-bg-canvas"></canvas>
+    <!-- 勝利煙火/紙花畫布 -->
+    <canvas id="confetti-canvas"></canvas>
+
+    <div class="app-container">
+        <!-- 頂部導航與標題區 -->
+        <header class="game-header">
+            <div class="title-wrap">
+                <i class="fa-solid fa-wand-magic-sparkles title-icon"></i>
+                <h1 class="main-title">Magic Sort Shen</h1>
+                <i class="fa-solid fa-flask-vial title-icon"></i>
+            </div>
+            <p class="subtitle">將相同顏色的魔法藥水整理至同一試管中！</p>
+        </header>
+
+        <!-- 遊戲控制與資訊狀態列 -->
+        <section class="game-status-bar">
+            <div class="stat-badge">
+                <i class="fa-solid fa-layer-group"></i>
+                <span class="stat-label">關卡</span>
+                <span id="level-display" class="stat-val">1/100</span>
+            </div>
+            <div class="stat-badge">
+                <i class="fa-solid fa-coins"></i>
+                <span class="stat-label">分數</span>
+                <span id="score-display" class="stat-val">1000</span>
+            </div>
+            <div class="stat-badge">
+                <i class="fa-solid fa-shoe-prints"></i>
+                <span class="stat-label">步數</span>
+                <span id="moves-display" class="stat-val">0</span>
+            </div>
+        </section>
+
+        <!-- 工具按鈕列（全面使用 Font Awesome） -->
+        <section class="toolbar">
+            <button id="btn-select-level" class="tool-btn" title="選擇或跳轉關卡 (1~100)">
+                <i class="fa-solid fa-map-location-dot"></i>
+                <span>跳關</span>
+            </button>
+            <button id="btn-undo" class="tool-btn" title="上一步 (Undo)">
+                <i class="fa-solid fa-rotate-left"></i>
+                <span>復原</span>
+            </button>
+            <button id="btn-restart" class="tool-btn" title="重新開始本關">
+                <i class="fa-solid fa-arrow-rotate-right"></i>
+                <span>重置</span>
+            </button>
+            <button id="btn-add-tube" class="tool-btn" title="增加空試管 (扣 200 分)">
+                <i class="fa-solid fa-plus"></i>
+                <span>加管(-200)</span>
+            </button>
+            <button id="btn-toggle-layout" class="tool-btn" title="切換中央巨型長瓶神殿模式">
+                <i class="fa-solid fa-gem"></i>
+                <span id="layout-text">巨瓶模式</span>
+            </button>
+            <button id="btn-sound" class="tool-btn" title="音效開關">
+                <i id="sound-icon" class="fa-solid fa-volume-high"></i>
+                <span id="sound-text">音效</span>
+            </button>
+            <button id="btn-rules" class="tool-btn" title="遊戲規則說明">
+                <i class="fa-solid fa-circle-question"></i>
+                <span>說明</span>
+            </button>
+        </section>
+
+        <!-- 遊戲主試管區域 -->
+        <main class="game-board-wrapper">
+            <div id="tubes-container" class="tubes-container">
+                <!-- 試管動態由 JavaScript 產生 -->
+            </div>
+        </main>
+
+        <!-- 頁面下方版權文字 -->
+        <footer class="game-footer">
+            <p class="copyright-text">
+                <i class="fa-solid fa-shield-cat"></i>
+                <span>Copyright © Liyuchiutiger Gongminshen</span>
+            </p>
+        </footer>
+    </div>
+
+    <!-- 左下角可任意拖曳、霓虹彩色發光抖動的吉祥物 (已移除頭上對話框) -->
+    <div id="mascot-wrapper" class="mascot-container" title="拖曳我移動到任何地方！">
+        <div class="mascot-img-box">
+            <img id="mascot-img" src="image/LiyuChillGuy.svg" alt="Liyu Chill Guy 吉祥物" draggable="false">
+        </div>
+    </div>
+
+    <!-- 關卡選擇與跳關彈窗 -->
+    <div id="level-modal" class="modal-backdrop hidden">
+        <div class="modal-card modal-card-large">
+            <div class="modal-header-row">
+                <h2 class="modal-title"><i class="fa-solid fa-compass"></i> 關卡傳送 (1 ~ 100)</h2>
+                <button id="btn-close-level" class="icon-close-btn" title="關閉">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+            <!-- 快速輸入跳關 -->
+            <div class="jump-level-box">
+                <label for="jump-input">快速直達：</label>
+                <div class="jump-input-group">
+                    <input type="number" id="jump-input" min="1" max="100" placeholder="輸入 1~100">
+                    <button id="btn-jump-go" class="modal-btn primary small">
+                        <i class="fa-solid fa-bolt"></i>
+                        <span>跳轉</span>
+                    </button>
+                </div>
+            </div>
+            <div class="level-nav-filter">
+                <span class="filter-tip"><i class="fa-solid fa-fire"></i> 點選任意關卡直接挑戰：</span>
+            </div>
+            <!-- 1~100 關卡網格 -->
+            <div id="level-grid" class="level-grid-scroll">
+                <!-- 由 JavaScript 自動產生 1~100 的按鈕 -->
+            </div>
+        </div>
+    </div>
+
+    <!-- 勝利通關彈窗 -->
+    <div id="victory-modal" class="modal-backdrop hidden">
+        <div class="modal-card">
+            <div class="modal-trophy">
+                <i class="fa-solid fa-trophy trophy-bounce"></i>
+            </div>
+            <h2 class="modal-title">太神奇了！關卡完成！</h2>
+            <p id="victory-stats-text" class="modal-subtitle">你成功分類了所有魔法藥水！</p>
+            <div class="modal-actions">
+                <button id="btn-replay" class="modal-btn secondary">
+                    <i class="fa-solid fa-arrow-rotate-left"></i>
+                    <span>再玩一次</span>
+                </button>
+                <button id="btn-next-level" class="modal-btn primary">
+                    <i class="fa-solid fa-forward-step"></i>
+                    <span>下一關</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 規則說明彈窗 -->
+    <div id="rules-modal" class="modal-backdrop hidden">
+        <div class="modal-card">
+            <div class="modal-header-row">
+                <h2 class="modal-title"><i class="fa-solid fa-book-sparkles"></i> 玩法說明</h2>
+                <button id="btn-close-rules" class="icon-close-btn" title="關閉">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+            <ul class="rules-list">
+                <li><i class="fa-solid fa-hand-pointer"></i> 點選任一試管將其選中，再點選目標試管即可倒入藥水。</li>
+                <li><i class="fa-solid fa-droplet"></i> 只有在目標試管有空間，且最頂層顏色相同（或目標為空管）時才能倒入。</li>
+                <li><i class="fa-solid fa-check-double"></i> 當所有試管均為單一純色滿管，或完全為空管時即可過關！</li>
+                <li><i class="fa-solid fa-triangle-exclamation"></i> <strong>加管扣分：</strong>點選「加管」可獲得額外空管輔助，但每次將扣除 200 分魔法分數！</li>
+                <li><i class="fa-solid fa-compass"></i> <strong>跳關系統：</strong>提供 1 ~ 100 關挑戰地圖，難度層層遞增，可隨時自由挑選關卡！</li>
+                <li><i class="fa-solid fa-cat"></i> <strong>吉祥物：</strong>左下角吉祥物支援自由拖曳移動至視窗任何角落，懸停散發霓虹光芒與抖動。</li>
+            </ul>
+            <div class="modal-actions">
+                <button id="btn-rules-confirm" class="modal-btn primary">
+                    <i class="fa-solid fa-circle-play"></i>
+                    <span>開始施展魔法</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 載入腳本 -->
+    <script src="js/audio.js"></script>
+    <script src="js/game.js"></script>
+    <script src="js/mascot.js"></script>
+</body>
+</html>
